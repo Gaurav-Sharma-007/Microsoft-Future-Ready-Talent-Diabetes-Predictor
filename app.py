@@ -1,34 +1,38 @@
-# Importing essential libraries
-from flask import Flask, render_template, request
-import pickle
 import numpy as np
-
-# Load the Random Forest CLassifier model
-filename = 'diabetes-prediction-rfc-model.pkl'
-classifier = pickle.load(open(filename, 'rb'))
+from flask import Flask, request, jsonify, render_template
+import pickle
 
 app = Flask(__name__)
+model = pickle.load(open('model.pkl', 'rb'))
 
 @app.route('/')
 def home():
-	return render_template('index.html')
+    return render_template('index.html')
 
-@app.route('/predict', methods=['POST'])
+@app.route('/predict',methods=['POST'])
 def predict():
-    if request.method == 'POST':
-        preg = int(request.form['pregnancies'])
-        glucose = int(request.form['glucose'])
-        bp = int(request.form['bloodpressure'])
-        st = int(request.form['skinthickness'])
-        insulin = int(request.form['insulin'])
-        bmi = float(request.form['bmi'])
-        dpf = float(request.form['dpf'])
-        age = int(request.form['age'])
-        
-        data = np.array([[preg, glucose, bp, st, insulin, bmi, dpf, age]])
-        my_prediction = classifier.predict(data)
-        
-        return render_template('result.html', prediction=my_prediction)
+    '''
+    For rendering results on HTML GUI
+    '''
+    int_features = [float(x) for x in request.form.values()]
+    final_features = [np.array(int_features)]
+    prediction = model.predict(final_features)
 
-if __name__ == '__main__':
-	app.run(debug=True)
+    output = round(prediction[0],7)
+    if output==1:
+        return render_template('result.html', prediction_text='We are sorry to inform that you may have Diabetes! Please seek medical advise')                 
+    else:
+        return render_template('result.html', prediction_text='Congratulations! You don't have Diabetes! Stay Healthy')
+@app.route('/predict_api',methods=['POST'])
+def predict_api():
+    '''
+    For direct API calls trought request
+    '''
+    data = request.get_json(force=True)
+    prediction = model.predict([np.array(list(data.values()))])
+
+    output = prediction[0]
+    return jsonify(output)
+
+if __name__ == "__main__":
+    app.run(debug=False)
